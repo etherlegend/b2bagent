@@ -12,7 +12,7 @@ import {
   Spinner,
   useToast,
 } from '@chakra-ui/react';
-import { FaGithub, FaStop, FaTrash } from 'react-icons/fa';
+import { FaAddressCard, FaGithub, FaStop, FaTrash } from 'react-icons/fa';
 import { HiMinus, HiX } from 'react-icons/hi';
 import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
 import { useDispatch } from 'zutron';
@@ -60,8 +60,11 @@ function Main() {
       {/* Title heading no longer needs drag property since parent is draggable */}
       <Box position="absolute" top={2} left={6}>
         <Heading fontFamily="Garamond, serif" fontWeight="hairline">
-          Agent.exe
+          B2BAutoPilot
         </Heading>
+        <p>
+          <b>Global Corp </b> : Agent - Nancy
+        </p>
       </Box>
 
       {/* Window controls and GitHub button moved together */}
@@ -74,9 +77,12 @@ function Main() {
           '-webkit-app-region': 'no-drag',
         }}
       >
-        <Link href="https://github.com/corbt/agent.exe" isExternal>
+        <Link
+          href="https://b2bautopilot-git-preview-b2bautopilot.vercel.app/agent/1"
+          isExternal
+        >
           <Button variant="ghost" size="sm" aria-label="GitHub" minW={8} p={0}>
-            <FaGithub />
+            <FaAddressCard />
           </Button>
         </Link>
         <Button
