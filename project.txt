@@ -1,0 +1,1584 @@
+File: src/renderer/index.tsx
+----------------------------------------
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+const container = document.getElementById('root') as HTMLElement;
+const root = createRoot(container);
+root.render(<App />);
+
+// calling IPC exposed from preload script
+window.electron.ipcRenderer.once('ipc-example', (arg) => {
+  // eslint-disable-next-line no-console
+  console.log(arg);
+});
+window.electron.ipcRenderer.sendMessage('ipc-example', ['ping']);
+
+
+
+File: src/renderer/App.tsx
+----------------------------------------
+import React from 'react';
+import {
+  Box,
+  Button,
+  ChakraProvider,
+  HStack,
+  Heading,
+  Link,
+  Switch,
+  VStack,
+  extendTheme,
+  Spinner,
+  useToast,
+} from '@chakra-ui/react';
+import { FaAddressCard, FaGithub, FaStop, FaTrash } from 'react-icons/fa';
+import { HiMinus, HiX } from 'react-icons/hi';
+import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
+import { useDispatch } from 'zutron';
+import { useStore } from './hooks/useStore';
+import { RunHistory } from './RunHistory';
+
+function Main() {
+  const dispatch = useDispatch(window.zutron);
+  const {
+    instructions: savedInstructions,
+    fullyAuto,
+    running,
+    error,
+    runHistory,
+  } = useStore();
+  // Add local state for instructions
+  const [localInstructions, setLocalInstructions] = React.useState(
+    savedInstructions ?? '',
+  );
+  const toast = useToast(); // Add toast hook
+
+  const startRun = () => {
+    // Update Zustand state before starting the run
+    dispatch({ type: 'SET_INSTRUCTIONS', payload: localInstructions });
+    dispatch({ type: 'RUN_AGENT', payload: null });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      startRun();
+    }
+  };
+
+  return (
+    <Box
+      position="relative"
+      w="100%"
+      h="100vh"
+      p={4}
+      sx={{
+        '-webkit-app-region': 'drag', // Make the background draggable
+      }}
+    >
+      {/* Title heading no longer needs drag property since parent is draggable */}
+      <Box position="absolute" top={2} left={6}>
+        <Heading fontFamily="Garamond, serif" fontWeight="hairline">
+          B2BAutoPilot
+        </Heading>
+        <p>
+          <b>Global Corp </b> : Agent - Nancy
+        </p>
+      </Box>
+
+      {/* Window controls and GitHub button moved together */}
+      <HStack
+        position="absolute"
+        top={2}
+        right={2}
+        spacing={0}
+        sx={{
+          '-webkit-app-region': 'no-drag',
+        }}
+      >
+        <Link
+          href="https://b2bautopilot-git-preview-b2bautopilot.vercel.app/agent/1"
+          isExternal
+        >
+          <Button variant="ghost" size="sm" aria-label="GitHub" minW={8} p={0}>
+            <FaAddressCard />
+          </Button>
+        </Link>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => window.electron.windowControls.minimize()}
+          minW={8}
+          p={0}
+        >
+          <HiMinus />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => window.electron.windowControls.close()}
+          minW={8}
+          p={0}
+        >
+          <HiX />
+        </Button>
+      </HStack>
+
+      <VStack
+        spacing={4}
+        align="center"
+        h="100%"
+        w="100%"
+        pt={16}
+        sx={{
+          '& > *': {
+            // Make all direct children non-draggable
+            '-webkit-app-region': 'no-drag',
+          },
+        }}
+      >
+        <Box
+          as="textarea"
+          placeholder="What can I do for you today?"
+          width="100%"
+          height="auto"
+          minHeight="48px"
+          p={4}
+          borderRadius="16px"
+          border="1px solid"
+          borderColor="rgba(112, 107, 87, 0.5)"
+          verticalAlign="top"
+          resize="none"
+          overflow="hidden"
+          sx={{
+            '-webkit-app-region': 'no-drag',
+            transition: 'box-shadow 0.2s, border-color 0.2s',
+            _hover: {
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+            },
+            _focus: {
+              borderColor: 'blackAlpha.500',
+              outline: 'none',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            },
+          }}
+          value={localInstructions}
+          disabled={running}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+            setLocalInstructions(e.target.value);
+            // Auto-adjust height
+            e.target.style.height = 'auto';
+            e.target.style.height = `${e.target.scrollHeight}px`;
+          }}
+          onKeyDown={handleKeyDown}
+        />
+        <HStack justify="space-between" align="center" w="100%">
+          <HStack spacing={2}>
+            <Switch
+              isChecked={fullyAuto}
+              onChange={(e) => {
+                toast({
+                  description:
+                    "Whoops, automatic mode isn't actually implemented yet. 😬",
+                  status: 'info',
+                  duration: 3000,
+                  isClosable: true,
+                });
+              }}
+            />
+            <Box>Full Auto</Box>
+          </HStack>
+          <HStack>
+            {running && <Spinner size="sm" color="gray.500" mr={2} />}
+            {!running && runHistory.length > 0 && (
+              <Button
+                bg="transparent"
+                fontWeight="normal"
+                _hover={{
+                  bg: 'whiteAlpha.500',
+                  borderColor: 'blackAlpha.300',
+                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+                }}
+                _focus={{
+                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+                  outline: 'none',
+                }}
+                borderRadius="12px"
+                border="1px solid"
+                borderColor="blackAlpha.200"
+                onClick={() => dispatch('CLEAR_HISTORY')}
+                aria-label="Clear history"
+              >
+                <FaTrash />
+              </Button>
+            )}
+            <Button
+              bg="transparent"
+              fontWeight="normal"
+              _hover={{
+                bg: 'whiteAlpha.500',
+                borderColor: 'blackAlpha.300',
+                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+              }}
+              _focus={{
+                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+                outline: 'none',
+              }}
+              borderRadius="12px"
+              border="1px solid"
+              borderColor="blackAlpha.200"
+              onClick={running ? () => dispatch('STOP_RUN') : startRun}
+              isDisabled={!running && localInstructions?.trim() === ''}
+            >
+              {running ? <FaStop /> : "Let's Go"}
+            </Button>
+          </HStack>
+        </HStack>
+
+        {/* Add error display */}
+        {error && (
+          <Box w="100%" color="red.700">
+            {error}
+          </Box>
+        )}
+
+        {/* RunHistory component */}
+        <Box flex="1" w="100%" overflow="auto">
+          <RunHistory />
+        </Box>
+      </VStack>
+    </Box>
+  );
+}
+
+const theme = extendTheme({
+  styles: {
+    global: {
+      body: {
+        color: 'rgb(83, 81, 70)',
+      },
+    },
+  },
+  components: {
+    Switch: {
+      baseStyle: {
+        track: {
+          bg: 'blackAlpha.200',
+          _checked: {
+            bg: '#c79060',
+          },
+        },
+      },
+    },
+  },
+});
+
+export default function App() {
+  return (
+    <ChakraProvider theme={theme}>
+      <Box bg="rgb(240, 238, 229)" minHeight="100vh">
+        <Router>
+          <Routes>
+            <Route path="/" element={<Main />} />
+          </Routes>
+        </Router>
+      </Box>
+    </ChakraProvider>
+  );
+}
+
+
+
+File: src/renderer/preload.d.ts
+----------------------------------------
+import { ElectronHandler } from '../main/preload';
+
+declare global {
+  // eslint-disable-next-line no-unused-vars
+  interface Window {
+    electron: ElectronHandler;
+    zutron: any;
+  }
+}
+
+export {};
+
+
+
+File: src/renderer/hooks/useStore.ts
+----------------------------------------
+import { createUseStore } from 'zutron';
+import type { AppState } from '../../main/store/types';
+
+export const useStore = createUseStore<AppState>(window.zutron);
+
+
+
+File: src/renderer/RunHistory.tsx
+----------------------------------------
+import { Box } from '@chakra-ui/react';
+import { useEffect } from 'react';
+import { useStore } from './hooks/useStore';
+import { extractAction } from '../main/store/extractAction';
+
+export function RunHistory() {
+  const { runHistory } = useStore();
+
+  const messages = runHistory
+    .filter((m) => m.role === 'assistant')
+    .map((m) => extractAction(m));
+
+  useEffect(() => {
+    const element = document.getElementById('run-history');
+    if (element) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [messages]); // Scroll when messages change
+
+  if (runHistory.length === 0) return null;
+
+  return (
+    <Box
+      id="run-history" // Add ID for scrolling
+      w="100%"
+      h="100%"
+      bg="white"
+      borderRadius="16px"
+      border="1px solid"
+      borderColor="rgba(112, 107, 87, 0.5)"
+      p={4}
+      overflow="auto"
+    >
+      {messages.map((action, index) => {
+        const { type, ...params } = action.action;
+        return (
+          <Box key={index} mb={4} p={3} borderRadius="md" bg="gray.50">
+            <Box mb={2} fontSize="sm" color="gray.600">
+              {action.reasoning}
+            </Box>
+            <Box fontFamily="monospace" color="blue.600">
+              {type}({params ? JSON.stringify(params) : ''})
+            </Box>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+
+
+File: src/renderer/global.d.ts
+----------------------------------------
+interface Window {
+  electron: {
+    // ... existing definitions ...
+    windowControls: {
+      minimize: () => Promise<void>;
+      maximize: () => Promise<void>;
+      close: () => Promise<void>;
+    };
+  };
+}
+
+
+
+File: src/__tests__/App.test.tsx
+----------------------------------------
+import '@testing-library/jest-dom';
+import { render } from '@testing-library/react';
+import App from '../renderer/App';
+
+describe('App', () => {
+  it('should render', () => {
+    expect(render(<App />)).toBeTruthy();
+  });
+});
+
+
+
+File: src/main/main.ts
+----------------------------------------
+/* eslint global-require: off, no-console: off, promise/always-return: off */
+
+/**
+ * This module executes inside of electron's main process. You can start
+ * electron renderer process from here and communicate with the other processes
+ * through IPC.
+ *
+ * When running `npm run build` or `npm run build:main`, this file is compiled to
+ * `./src/main.js` using webpack. This gives us some performance wins.
+ */
+import { app, ipcMain } from 'electron';
+import log from 'electron-log';
+import { autoUpdater } from 'electron-updater';
+import path from 'path';
+import { mainZustandBridge } from 'zutron/main';
+import { createMainWindow } from './window';
+import { store } from './store/create';
+
+class AppUpdater {
+  constructor() {
+    log.transports.file.level = 'info';
+    autoUpdater.logger = log;
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+}
+
+ipcMain.on('ipc-example', async (event, arg) => {
+  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
+  console.log(msgTemplate(arg));
+  event.reply('ipc-example', msgTemplate('pong'));
+});
+
+if (process.env.NODE_ENV === 'production') {
+  const sourceMapSupport = require('source-map-support');
+  sourceMapSupport.install();
+}
+
+const isDebug =
+  process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
+
+if (isDebug) {
+  require('electron-debug')({ showDevTools: false });
+}
+
+const installExtensions = async () => {
+  const installer = require('electron-devtools-installer');
+  const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
+  const extensions = ['REACT_DEVELOPER_TOOLS'];
+
+  return installer
+    .default(
+      extensions.map((name) => installer[name]),
+      forceDownload,
+    )
+    .catch(console.log);
+};
+
+const initializeApp = async () => {
+  if (isDebug) {
+    await installExtensions();
+  }
+
+  const RESOURCES_PATH = app.isPackaged
+    ? path.join(process.resourcesPath, 'assets')
+    : path.join(__dirname, '../../assets');
+
+  const getAssetPath = (...paths: string[]): string => {
+    return path.join(RESOURCES_PATH, ...paths);
+  };
+
+  const mainWindow = await createMainWindow(getAssetPath);
+
+  // Remove this if your app does not use auto updates
+  // eslint-disable-next-line
+  new AppUpdater();
+
+  const { unsubscribe } = mainZustandBridge(ipcMain, store, [mainWindow], {
+    // reducer: rootReducer,
+  });
+
+  app.on('quit', unsubscribe);
+};
+
+/**
+ * Add event listeners...
+ */
+
+app.on('window-all-closed', () => {
+  // Respect the OSX convention of having the application in memory even
+  // after all windows have been closed
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app
+  .whenReady()
+  .then(async () => {
+    await initializeApp();
+  })
+  .catch(console.log);
+
+
+
+File: src/main/menu.ts
+----------------------------------------
+import {
+  app,
+  Menu,
+  shell,
+  BrowserWindow,
+  MenuItemConstructorOptions,
+} from 'electron';
+
+interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
+  selector?: string;
+  submenu?: DarwinMenuItemConstructorOptions[] | Menu;
+}
+
+export default class MenuBuilder {
+  mainWindow: BrowserWindow;
+
+  constructor(mainWindow: BrowserWindow) {
+    this.mainWindow = mainWindow;
+  }
+
+  buildMenu(): Menu {
+    if (
+      process.env.NODE_ENV === 'development' ||
+      process.env.DEBUG_PROD === 'true'
+    ) {
+      this.setupDevelopmentEnvironment();
+    }
+
+    const template =
+      process.platform === 'darwin'
+        ? this.buildDarwinTemplate()
+        : this.buildDefaultTemplate();
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+
+    return menu;
+  }
+
+  setupDevelopmentEnvironment(): void {
+    this.mainWindow.webContents.on('context-menu', (_, props) => {
+      const { x, y } = props;
+
+      Menu.buildFromTemplate([
+        {
+          label: 'Inspect element',
+          click: () => {
+            this.mainWindow.webContents.inspectElement(x, y);
+          },
+        },
+      ]).popup({ window: this.mainWindow });
+    });
+  }
+
+  buildDarwinTemplate(): MenuItemConstructorOptions[] {
+    const subMenuAbout: DarwinMenuItemConstructorOptions = {
+      label: 'Electron',
+      submenu: [
+        {
+          label: 'About ElectronReact',
+          selector: 'orderFrontStandardAboutPanel:',
+        },
+        { type: 'separator' },
+        { label: 'Services', submenu: [] },
+        { type: 'separator' },
+        {
+          label: 'Hide ElectronReact',
+          accelerator: 'Command+H',
+          selector: 'hide:',
+        },
+        {
+          label: 'Hide Others',
+          accelerator: 'Command+Shift+H',
+          selector: 'hideOtherApplications:',
+        },
+        { label: 'Show All', selector: 'unhideAllApplications:' },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          accelerator: 'Command+Q',
+          click: () => {
+            app.quit();
+          },
+        },
+      ],
+    };
+    const subMenuEdit: DarwinMenuItemConstructorOptions = {
+      label: 'Edit',
+      submenu: [
+        { label: 'Undo', accelerator: 'Command+Z', selector: 'undo:' },
+        { label: 'Redo', accelerator: 'Shift+Command+Z', selector: 'redo:' },
+        { type: 'separator' },
+        { label: 'Cut', accelerator: 'Command+X', selector: 'cut:' },
+        { label: 'Copy', accelerator: 'Command+C', selector: 'copy:' },
+        { label: 'Paste', accelerator: 'Command+V', selector: 'paste:' },
+        {
+          label: 'Select All',
+          accelerator: 'Command+A',
+          selector: 'selectAll:',
+        },
+      ],
+    };
+    const subMenuViewDev: MenuItemConstructorOptions = {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'Command+R',
+          click: () => {
+            this.mainWindow.webContents.reload();
+          },
+        },
+        {
+          label: 'Toggle Full Screen',
+          accelerator: 'Ctrl+Command+F',
+          click: () => {
+            this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
+          },
+        },
+        {
+          label: 'Toggle Developer Tools',
+          accelerator: 'Alt+Command+I',
+          click: () => {
+            this.mainWindow.webContents.toggleDevTools();
+          },
+        },
+      ],
+    };
+    const subMenuViewProd: MenuItemConstructorOptions = {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Full Screen',
+          accelerator: 'Ctrl+Command+F',
+          click: () => {
+            this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
+          },
+        },
+      ],
+    };
+    const subMenuWindow: DarwinMenuItemConstructorOptions = {
+      label: 'Window',
+      submenu: [
+        {
+          label: 'Minimize',
+          accelerator: 'Command+M',
+          selector: 'performMiniaturize:',
+        },
+        { label: 'Close', accelerator: 'Command+W', selector: 'performClose:' },
+        { type: 'separator' },
+        { label: 'Bring All to Front', selector: 'arrangeInFront:' },
+      ],
+    };
+    const subMenuHelp: MenuItemConstructorOptions = {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Learn More',
+          click() {
+            shell.openExternal('https://electronjs.org');
+          },
+        },
+        {
+          label: 'Documentation',
+          click() {
+            shell.openExternal(
+              'https://github.com/electron/electron/tree/main/docs#readme',
+            );
+          },
+        },
+        {
+          label: 'Community Discussions',
+          click() {
+            shell.openExternal('https://www.electronjs.org/community');
+          },
+        },
+        {
+          label: 'Search Issues',
+          click() {
+            shell.openExternal('https://github.com/electron/electron/issues');
+          },
+        },
+      ],
+    };
+
+    const subMenuView =
+      process.env.NODE_ENV === 'development' ||
+      process.env.DEBUG_PROD === 'true'
+        ? subMenuViewDev
+        : subMenuViewProd;
+
+    return [subMenuAbout, subMenuEdit, subMenuView, subMenuWindow, subMenuHelp];
+  }
+
+  buildDefaultTemplate() {
+    const templateDefault = [
+      {
+        label: '&File',
+        submenu: [
+          {
+            label: '&Open',
+            accelerator: 'Ctrl+O',
+          },
+          {
+            label: '&Close',
+            accelerator: 'Ctrl+W',
+            click: () => {
+              this.mainWindow.close();
+            },
+          },
+        ],
+      },
+      {
+        label: '&View',
+        submenu:
+          process.env.NODE_ENV === 'development' ||
+          process.env.DEBUG_PROD === 'true'
+            ? [
+                {
+                  label: '&Reload',
+                  accelerator: 'Ctrl+R',
+                  click: () => {
+                    this.mainWindow.webContents.reload();
+                  },
+                },
+                {
+                  label: 'Toggle &Full Screen',
+                  accelerator: 'F11',
+                  click: () => {
+                    this.mainWindow.setFullScreen(
+                      !this.mainWindow.isFullScreen(),
+                    );
+                  },
+                },
+                {
+                  label: 'Toggle &Developer Tools',
+                  accelerator: 'Alt+Ctrl+I',
+                  click: () => {
+                    this.mainWindow.webContents.toggleDevTools();
+                  },
+                },
+              ]
+            : [
+                {
+                  label: 'Toggle &Full Screen',
+                  accelerator: 'F11',
+                  click: () => {
+                    this.mainWindow.setFullScreen(
+                      !this.mainWindow.isFullScreen(),
+                    );
+                  },
+                },
+              ],
+      },
+      {
+        label: 'Help',
+        submenu: [
+          {
+            label: 'Learn More',
+            click() {
+              shell.openExternal('https://electronjs.org');
+            },
+          },
+          {
+            label: 'Documentation',
+            click() {
+              shell.openExternal(
+                'https://github.com/electron/electron/tree/main/docs#readme',
+              );
+            },
+          },
+          {
+            label: 'Community Discussions',
+            click() {
+              shell.openExternal('https://www.electronjs.org/community');
+            },
+          },
+          {
+            label: 'Search Issues',
+            click() {
+              shell.openExternal('https://github.com/electron/electron/issues');
+            },
+          },
+        ],
+      },
+    ];
+
+    return templateDefault;
+  }
+}
+
+
+
+File: src/main/preload.ts
+----------------------------------------
+// Disable no-unused-vars, broken for spread args
+/* eslint no-unused-vars: off */
+import { contextBridge, ipcRenderer } from 'electron';
+import { preloadZustandBridge } from 'zutron/preload';
+
+import type { AppState } from './store/types';
+
+export type Channels = 'ipc-example';
+
+const electronHandler = {
+  ipcRenderer: {
+    sendMessage(channel: Channels, ...args: unknown[]) {
+      ipcRenderer.send(channel, ...args);
+    },
+    on(channel: Channels, func: (...args: unknown[]) => void) {
+      const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
+        func(...args);
+      ipcRenderer.on(channel, subscription);
+
+      return () => {
+        ipcRenderer.removeListener(channel, subscription);
+      };
+    },
+    once(channel: Channels, func: (...args: unknown[]) => void) {
+      ipcRenderer.once(channel, (_event, ...args) => func(...args));
+    },
+  },
+  // Add window controls
+  windowControls: {
+    minimize: () => ipcRenderer.invoke('minimize-window'),
+    maximize: () => ipcRenderer.invoke('maximize-window'),
+    close: () => ipcRenderer.invoke('close-window'),
+  },
+};
+
+// Initialize Zutron bridge
+const { handlers } = preloadZustandBridge<AppState>(ipcRenderer);
+
+// Expose both electron and zutron handlers
+contextBridge.exposeInMainWorld('electron', electronHandler);
+contextBridge.exposeInMainWorld('zutron', handlers);
+
+export type ElectronHandler = typeof electronHandler;
+
+
+
+File: src/main/util.ts
+----------------------------------------
+/* eslint import/prefer-default-export: off */
+import { URL } from 'url';
+import path from 'path';
+
+export function resolveHtmlPath(htmlFileName: string) {
+  if (process.env.NODE_ENV === 'development') {
+    const port = process.env.PORT || 1212;
+    const url = new URL(`http://localhost:${port}`);
+    url.pathname = htmlFileName;
+    return url.href;
+  }
+  return `file://${path.resolve(__dirname, '../renderer/', htmlFileName)}`;
+}
+
+
+
+File: src/main/window.ts
+----------------------------------------
+import { app, BrowserWindow, ipcMain, shell, screen } from 'electron';
+import path from 'path';
+import { resolveHtmlPath } from './util';
+import MenuBuilder from './menu';
+
+let mainWindow: BrowserWindow | null = null;
+let fadeInterval: NodeJS.Timeout | null = null;
+let showTimeout: NodeJS.Timeout | null = null;
+
+const FADE_STEP = 0.1;
+const FADE_INTERVAL = 16;
+const SHOW_DELAY = 500;
+
+function executeFade(show: boolean, resolve: () => void) {
+  if (!mainWindow) {
+    resolve();
+    return;
+  }
+
+  if (show) {
+    mainWindow.setOpacity(0);
+    mainWindow.showInactive();
+  }
+
+  let opacity = show ? 0 : 1;
+
+  fadeInterval = setInterval(() => {
+    if (!mainWindow) {
+      if (fadeInterval) clearInterval(fadeInterval);
+      resolve();
+      return;
+    }
+
+    opacity = show ? opacity + FADE_STEP : opacity - FADE_STEP;
+    opacity = Math.min(Math.max(opacity, 0), 1);
+    mainWindow.setOpacity(opacity);
+
+    if ((show && opacity >= 1) || (!show && opacity <= 0)) {
+      if (fadeInterval) clearInterval(fadeInterval);
+      if (!show) mainWindow.hide();
+      resolve();
+    }
+  }, FADE_INTERVAL);
+}
+
+function fadeWindow(show: boolean, immediate = false): Promise<void> {
+  return new Promise((resolve) => {
+    if (!mainWindow) {
+      resolve();
+      return;
+    }
+
+    if (fadeInterval) {
+      clearInterval(fadeInterval);
+    }
+
+    if (!show) {
+      if (showTimeout) {
+        clearTimeout(showTimeout);
+        showTimeout = null;
+      }
+      executeFade(show, resolve);
+      return;
+    }
+
+    if (showTimeout) {
+      clearTimeout(showTimeout);
+    }
+
+    if (immediate) {
+      executeFade(show, resolve);
+    } else {
+      showTimeout = setTimeout(() => {
+        executeFade(show, resolve);
+      }, SHOW_DELAY);
+    }
+  });
+}
+
+export async function createMainWindow(
+  getAssetPath: (...paths: string[]) => string,
+): Promise<BrowserWindow> {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  mainWindow = new BrowserWindow({
+    show: false,
+    width: 350,
+    height: 600,
+    x: width - 350,
+    y: 0,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    icon: getAssetPath('icon.png'),
+    webPreferences: {
+      preload: app.isPackaged
+        ? path.join(__dirname, 'preload.js')
+        : path.join(__dirname, '../../.erb/dll/preload.js'),
+    },
+  });
+
+  mainWindow.loadURL(resolveHtmlPath('index.html'));
+
+  mainWindow.on('ready-to-show', () => {
+    if (!mainWindow) {
+      throw new Error('"mainWindow" is not defined');
+    }
+    if (process.env.START_MINIMIZED) {
+      mainWindow.minimize();
+    } else {
+      // Use immediate=true for initial show
+      fadeWindow(true, true);
+    }
+  });
+
+  mainWindow.on('closed', () => {
+    if (fadeInterval) {
+      clearInterval(fadeInterval);
+    }
+    if (showTimeout) {
+      clearTimeout(showTimeout);
+    }
+    mainWindow = null;
+  });
+
+  const menuBuilder = new MenuBuilder(mainWindow);
+  menuBuilder.buildMenu();
+
+  mainWindow.webContents.setWindowOpenHandler((edata) => {
+    shell.openExternal(edata.url);
+    return { action: 'deny' };
+  });
+
+  ipcMain.handle('minimize-window', () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.handle('maximize-window', () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow?.unmaximize();
+    } else {
+      mainWindow?.maximize();
+    }
+  });
+
+  ipcMain.handle('close-window', async () => {
+    if (mainWindow) {
+      await fadeWindow(false);
+      mainWindow.close();
+    }
+  });
+
+  app.on('activate', () => {
+    if (mainWindow === null) createMainWindow(getAssetPath);
+  });
+
+  return mainWindow;
+}
+
+export async function showWindow(show: boolean) {
+  if (mainWindow) {
+    await fadeWindow(show);
+  }
+}
+
+export async function hideWindowBlock<T>(
+  operation: () => Promise<T> | T,
+): Promise<T> {
+  try {
+    await fadeWindow(false);
+    const result = await Promise.resolve(operation());
+    return result;
+  } finally {
+    await fadeWindow(true);
+  }
+}
+
+
+
+File: src/main/store/extractAction.ts
+----------------------------------------
+import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import { NextAction } from './types';
+
+export const extractAction = (
+  message: BetaMessageParam,
+): {
+  action: NextAction;
+  reasoning: string;
+  toolId: string;
+} => {
+  const reasoning = message.content
+    .filter((content) => content.type === 'text')
+    .map((content) => content.text)
+    .join(' ');
+
+  const lastMessage = message.content[message.content.length - 1];
+  if (typeof lastMessage === 'string') {
+    return {
+      action: { type: 'error', message: 'No tool called' },
+      reasoning,
+      toolId: '',
+    };
+  }
+
+  if (lastMessage.type !== 'tool_use') {
+    return {
+      action: { type: 'error', message: 'No tool called' },
+      reasoning,
+      toolId: '',
+    };
+  }
+  if (lastMessage.name === 'finish_run') {
+    const input = lastMessage.input as {
+      success: boolean;
+      error?: string;
+    };
+    if (!input.success) {
+      return {
+        action: {
+          type: 'error',
+          message: input.error ?? 'Agent encountered unknown error',
+        },
+        reasoning,
+        toolId: lastMessage.id,
+      };
+    }
+    return {
+      action: { type: 'finish' },
+      reasoning,
+      toolId: lastMessage.id,
+    };
+  }
+  if (lastMessage.name !== 'computer') {
+    return {
+      action: {
+        type: 'error',
+        message: `Wrong tool called: ${lastMessage.name}`,
+      },
+      reasoning,
+      toolId: '',
+    };
+  }
+
+  const { action, coordinate, text } = lastMessage.input as {
+    action: string;
+    coordinate?: [number, number];
+    text?: string;
+  };
+
+  // Convert toolUse into NextAction
+  let nextAction: NextAction;
+  switch (action) {
+    case 'type':
+    case 'key':
+      if (!text) {
+        nextAction = {
+          type: 'error',
+          message: `No text provided for ${action}`,
+        };
+      } else {
+        nextAction = { type: action, text };
+      }
+      break;
+    case 'mouse_move':
+      if (!coordinate) {
+        nextAction = { type: 'error', message: 'No coordinate provided' };
+      } else {
+        const [x, y] = coordinate;
+        nextAction = { type: 'mouse_move', x, y };
+      }
+      break;
+    case 'left_click':
+      nextAction = { type: 'left_click' };
+      break;
+    case 'left_click_drag':
+      if (!coordinate) {
+        nextAction = {
+          type: 'error',
+          message: 'No coordinate provided for drag',
+        };
+      } else {
+        const [x, y] = coordinate;
+        nextAction = { type: 'left_click_drag', x, y };
+      }
+      break;
+    case 'right_click':
+      nextAction = { type: 'right_click' };
+      break;
+    case 'middle_click':
+      nextAction = { type: 'middle_click' };
+      break;
+    case 'double_click':
+      nextAction = { type: 'double_click' };
+      break;
+    case 'screenshot':
+      nextAction = { type: 'screenshot' };
+      break;
+    case 'cursor_position':
+      nextAction = { type: 'cursor_position' };
+      break;
+    case 'finish':
+      nextAction = { type: 'finish' };
+      break;
+    default:
+      nextAction = {
+        type: 'error',
+        message: `Unsupported computer action: ${action}`,
+      };
+  }
+
+  return { action: nextAction, reasoning, toolId: lastMessage.id };
+};
+
+
+
+File: src/main/store/anthropic.ts
+----------------------------------------
+import Anthropic from '@anthropic-ai/sdk';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+export const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  baseURL: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
+});
+
+
+
+File: src/main/store/runAgent.ts
+----------------------------------------
+import {
+  BetaMessage,
+  BetaMessageParam,
+} from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js';
+// import { createCanvas, loadImage } from 'canvas';
+import { desktopCapturer, screen } from 'electron';
+import { anthropic } from './anthropic';
+import { AppState, NextAction } from './types';
+import { extractAction } from './extractAction';
+import { hideWindowBlock, showWindow } from '../window';
+
+const MAX_STEPS = 50;
+
+function getScreenDimensions(): { width: number; height: number } {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  return primaryDisplay.size;
+}
+
+function getAiScaledScreenDimensions(): { width: number; height: number } {
+  const { width, height } = getScreenDimensions();
+  const aspectRatio = width / height;
+
+  let scaledWidth: number;
+  let scaledHeight: number;
+
+  if (aspectRatio > 1280 / 800) {
+    // Width is the limiting factor
+    scaledWidth = 1280;
+    scaledHeight = Math.round(1280 / aspectRatio);
+  } else {
+    // Height is the limiting factor
+    scaledHeight = 800;
+    scaledWidth = Math.round(800 * aspectRatio);
+  }
+
+  return { width: scaledWidth, height: scaledHeight };
+}
+
+const getScreenshot = async (): Promise<string> => {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.size;
+  const aiDimensions = getAiScaledScreenDimensions();
+
+  return hideWindowBlock(async () => {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width, height },
+    });
+    const primarySource = sources[0]; // Assuming the first source is the primary display
+
+    if (primarySource) {
+      const screenshot = primarySource.thumbnail;
+      // Resize the screenshot to AI dimensions
+      const resizedScreenshot = screenshot.resize(aiDimensions);
+      // Convert the resized screenshot to a base64-encoded PNG
+      const base64Image = resizedScreenshot.toPNG().toString('base64');
+      return base64Image;
+    }
+    throw new Error('No display found for screenshot');
+  });
+};
+
+const mapToAiSpace = (x: number, y: number) => {
+  const { width, height } = getScreenDimensions();
+  const aiDimensions = getAiScaledScreenDimensions();
+  return {
+    x: (x * aiDimensions.width) / width,
+    y: (y * aiDimensions.height) / height,
+  };
+};
+
+const mapFromAiSpace = (x: number, y: number) => {
+  const { width, height } = getScreenDimensions();
+  const aiDimensions = getAiScaledScreenDimensions();
+  return {
+    x: (x * width) / aiDimensions.width,
+    y: (y * height) / aiDimensions.height,
+  };
+};
+
+const promptForAction = async (
+  runHistory: BetaMessageParam[],
+): Promise<BetaMessageParam> => {
+  // Strip images from all but the last message
+  const historyWithoutImages = runHistory.map((msg, index) => {
+    if (index === runHistory.length - 1) return msg; // Keep the last message intact
+    if (Array.isArray(msg.content)) {
+      return {
+        ...msg,
+        content: msg.content.map((item) => {
+          if (item.type === 'tool_result' && typeof item.content !== 'string') {
+            return {
+              ...item,
+              content: item.content?.filter((c) => c.type !== 'image'),
+            };
+          }
+          return item;
+        }),
+      };
+    }
+    return msg;
+  });
+
+  const message = await anthropic.beta.messages.create({
+    model: 'claude-3-5-sonnet-20241022',
+    max_tokens: 1024,
+    tools: [
+      {
+        type: 'computer_20241022',
+        name: 'computer',
+        display_width_px: getAiScaledScreenDimensions().width,
+        display_height_px: getAiScaledScreenDimensions().height,
+        display_number: 1,
+      },
+      {
+        name: 'finish_run',
+        description:
+          'Call this function when you have achieved the goal of the task.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              description: 'Whether the task was successful',
+            },
+            error: {
+              type: 'string',
+              description: 'The error message if the task was not successful',
+            },
+          },
+          required: ['success'],
+        },
+      },
+    ],
+    system: `The user will ask you to perform a task and you should use their computer to do so. After each step, take a screenshot and carefully evaluate if you have achieved the right outcome. Explicitly show your thinking: "I have evaluated step X..." If not correct, try again. Only when you confirm a step was executed correctly should you move on to the next one. Note that you have to click into the browser address bar before typing a URL. You should always call a tool! Always return a tool call. Remember call the finish_run tool when you have achieved the goal of the task. Do not explain you have finished the task, just call the tool. Use keyboard shortcuts to navigate whenever possible.`,
+    // tool_choice: { type: 'any' },
+    messages: historyWithoutImages,
+    betas: ['computer-use-2024-10-22'],
+  });
+
+  return { content: message.content, role: message.role };
+};
+
+export const performAction = async (action: NextAction) => {
+  switch (action.type) {
+    case 'mouse_move':
+      const { x, y } = mapFromAiSpace(action.x, action.y);
+      await mouse.setPosition(new Point(x, y));
+      break;
+    case 'left_click_drag':
+      const { x: dragX, y: dragY } = mapFromAiSpace(action.x, action.y);
+      const currentPosition = await mouse.getPosition();
+      await mouse.drag([currentPosition, new Point(dragX, dragY)]);
+      break;
+    case 'cursor_position':
+      const position = await mouse.getPosition();
+      const aiPosition = mapToAiSpace(position.x, position.y);
+      // TODO: actually return the position
+      break;
+    case 'left_click':
+      await mouse.leftClick();
+      break;
+    case 'right_click':
+      await mouse.rightClick();
+      break;
+    case 'middle_click':
+      await mouse.click(Button.MIDDLE);
+      break;
+    case 'double_click':
+      await mouse.doubleClick(Button.LEFT);
+      break;
+    case 'type':
+      // Set typing delay to 0ms for instant typing
+      keyboard.config.autoDelayMs = 0;
+      await keyboard.type(action.text);
+      // Reset delay back to default if needed
+      keyboard.config.autoDelayMs = 500;
+      break;
+    case 'key':
+      const keyMap = {
+        Return: Key.Enter,
+      };
+      const keys = action.text.split('+').map((key) => {
+        const mappedKey = keyMap[key as keyof typeof keyMap];
+        if (!mappedKey) {
+          throw new Error(`Tried to press unknown key: ${key}`);
+        }
+        return mappedKey;
+      });
+      await keyboard.pressKey(...keys);
+      break;
+    case 'screenshot':
+      // Don't do anything since we always take a screenshot after each step
+      break;
+    default:
+      throw new Error(`Unsupported action: ${action.type}`);
+  }
+};
+
+export const runAgent = async (
+  setState: (state: AppState) => void,
+  getState: () => AppState,
+) => {
+  setState({
+    ...getState(),
+    running: true,
+    runHistory: [{ role: 'user', content: getState().instructions ?? '' }],
+    error: null,
+  });
+
+  while (getState().running) {
+    // Add this check at the start of the loop
+    if (getState().runHistory.length >= MAX_STEPS * 2) {
+      setState({
+        ...getState(),
+        error: 'Maximum steps exceeded',
+        running: false,
+      });
+      break;
+    }
+
+    try {
+      const message = await promptForAction(getState().runHistory);
+      setState({
+        ...getState(),
+        runHistory: [...getState().runHistory, message],
+      });
+      const { action, reasoning, toolId } = extractAction(
+        message as BetaMessage,
+      );
+      console.log('REASONING', reasoning);
+      console.log('ACTION', action);
+
+      if (action.type === 'error') {
+        setState({
+          ...getState(),
+          error: action.message,
+          running: false,
+        });
+        break;
+      } else if (action.type === 'finish') {
+        setState({
+          ...getState(),
+          running: false,
+        });
+        break;
+      }
+      if (!getState().running) {
+        break;
+      }
+
+      hideWindowBlock(() => performAction(action));
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (!getState().running) {
+        break;
+      }
+
+      setState({
+        ...getState(),
+        runHistory: [
+          ...getState().runHistory,
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: toolId,
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Here is a screenshot after the action was executed',
+                  },
+                  {
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: 'image/png',
+                      data: await getScreenshot(),
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    } catch (error: unknown) {
+      setState({
+        ...getState(),
+        error:
+          error instanceof Error ? error.message : 'An unknown error occurred',
+        running: false,
+      });
+      break;
+    }
+  }
+};
+
+
+
+File: src/main/store/types.ts
+----------------------------------------
+import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
+
+export type NextAction =
+  | { type: 'key'; text: string }
+  | { type: 'type'; text: string }
+  | { type: 'mouse_move'; x: number; y: number }
+  | { type: 'left_click' }
+  | { type: 'left_click_drag'; x: number; y: number }
+  | { type: 'right_click' }
+  | { type: 'middle_click' }
+  | { type: 'double_click' }
+  | { type: 'screenshot' }
+  | { type: 'cursor_position' }
+  | { type: 'finish' }
+  | { type: 'error'; message: string };
+
+export type AppState = {
+  instructions: string | null;
+  fullyAuto: boolean;
+  running: boolean;
+  error: string | null;
+
+  runHistory: BetaMessageParam[];
+
+  RUN_AGENT: () => void;
+  STOP_RUN: () => void;
+  SET_INSTRUCTIONS: (instructions: string) => void;
+  SET_FULLY_AUTO: (fullyAuto: boolean) => void;
+  CLEAR_HISTORY: () => void;
+};
+
+
+
+File: src/main/store/index.ts
+----------------------------------------
+import { type AppState } from './types';
+
+export type Subscribe = (
+  listener: (state: AppState, prevState: AppState) => void,
+) => () => void;
+export type Handlers = Record<string, () => void>;
+
+export type Store = {
+  getState: () => AppState;
+  getInitialState: () => AppState;
+  setState: (stateSetter: (state: AppState) => AppState) => void;
+  subscribe: Subscribe;
+};
+
+
+
+File: src/main/store/create.ts
+----------------------------------------
+import { createStore } from 'zustand/vanilla';
+import { createDispatch } from 'zutron/main';
+import { AppState } from './types';
+import { runAgent } from './runAgent';
+
+export const store = createStore<AppState>((set, get) => ({
+  instructions: 'find flights from seattle to sf for next tuesday to thursday',
+  fullyAuto: true, // renamed and changed default to true
+  running: false,
+  error: null,
+  runHistory: [],
+  RUN_AGENT: async () => runAgent(set, get),
+  STOP_RUN: () => set({ running: false }),
+  SET_INSTRUCTIONS: (instructions) => set({ instructions }),
+  SET_FULLY_AUTO: (fullyAuto) => {
+    // renamed from SET_HUMAN_SUPERVISED
+    set({ fullyAuto: fullyAuto ?? true }); // changed default to true
+  },
+  CLEAR_HISTORY: () => set({ runHistory: [] }),
+}));
+
+export const dispatch = createDispatch(store);
+
+
+

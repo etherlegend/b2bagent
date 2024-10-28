@@ -28,14 +28,12 @@ function Main() {
     error,
     runHistory,
   } = useStore();
-  // Add local state for instructions
   const [localInstructions, setLocalInstructions] = React.useState(
     savedInstructions ?? '',
   );
-  const toast = useToast(); // Add toast hook
+  const toast = useToast();
 
   const startRun = () => {
-    // Update Zustand state before starting the run
     dispatch({ type: 'SET_INSTRUCTIONS', payload: localInstructions });
     dispatch({ type: 'RUN_AGENT', payload: null });
   };
@@ -53,21 +51,20 @@ function Main() {
       w="100%"
       h="100vh"
       p={4}
+      bg="gray.900"
       sx={{
-        '-webkit-app-region': 'drag', // Make the background draggable
+        '-webkit-app-region': 'drag',
       }}
     >
-      {/* Title heading no longer needs drag property since parent is draggable */}
       <Box position="absolute" top={2} left={6}>
-        <Heading fontFamily="Garamond, serif" fontWeight="hairline">
+        <Heading fontFamily="'Space Grotesk', sans-serif" color="blue.200" fontSize="2xl">
           B2BAutoPilot
         </Heading>
-        <p>
-          <b>Global Corp </b> : Agent - Nancy
-        </p>
+        <Box color="gray.300" fontSize="sm">
+          <b>ChemSupply</b> : Agent - Alex
+        </Box>
       </Box>
 
-      {/* Window controls and GitHub button moved together */}
       <HStack
         position="absolute"
         top={2}
@@ -81,7 +78,7 @@ function Main() {
           href="https://b2bautopilot-git-preview-b2bautopilot.vercel.app/agent/1"
           isExternal
         >
-          <Button variant="ghost" size="sm" aria-label="GitHub" minW={8} p={0}>
+          <Button variant="ghost" size="sm" aria-label="Profile" minW={8} p={0} color="gray.300" _hover={{ color: "blue.200" }}>
             <FaAddressCard />
           </Button>
         </Link>
@@ -91,6 +88,8 @@ function Main() {
           onClick={() => window.electron.windowControls.minimize()}
           minW={8}
           p={0}
+          color="gray.300"
+          _hover={{ color: "blue.200" }}
         >
           <HiMinus />
         </Button>
@@ -100,6 +99,8 @@ function Main() {
           onClick={() => window.electron.windowControls.close()}
           minW={8}
           p={0}
+          color="gray.300"
+          _hover={{ color: "blue.200" }}
         >
           <HiX />
         </Button>
@@ -113,7 +114,6 @@ function Main() {
         pt={16}
         sx={{
           '& > *': {
-            // Make all direct children non-draggable
             '-webkit-app-region': 'no-drag',
           },
         }}
@@ -127,66 +127,61 @@ function Main() {
           p={4}
           borderRadius="16px"
           border="1px solid"
-          borderColor="rgba(112, 107, 87, 0.5)"
+          borderColor="gray.700"
+          bg="gray.800"
+          color="white"
           verticalAlign="top"
           resize="none"
           overflow="hidden"
           sx={{
             '-webkit-app-region': 'no-drag',
-            transition: 'box-shadow 0.2s, border-color 0.2s',
+            transition: 'all 0.2s',
             _hover: {
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+              borderColor: 'gray.600',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
             },
             _focus: {
-              borderColor: 'blackAlpha.500',
+              borderColor: 'blue.400',
+              boxShadow: '0 0 0 1px var(--chakra-colors-blue-400)',
               outline: 'none',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            },
+            _placeholder: {
+              color: 'gray.500',
             },
           }}
           value={localInstructions}
           disabled={running}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
             setLocalInstructions(e.target.value);
-            // Auto-adjust height
             e.target.style.height = 'auto';
             e.target.style.height = `${e.target.scrollHeight}px`;
           }}
           onKeyDown={handleKeyDown}
         />
-        <HStack justify="space-between" align="center" w="100%">
+
+        <HStack justify="space-between" align="center" w="100%" color="gray.300">
           <HStack spacing={2}>
             <Switch
               isChecked={fullyAuto}
               onChange={(e) => {
                 toast({
-                  description:
-                    "Whoops, automatic mode isn't actually implemented yet. 😬",
+                  description: "Whoops, automatic mode isn't actually implemented yet. 😬",
                   status: 'info',
                   duration: 3000,
                   isClosable: true,
                 });
               }}
+              colorScheme="blue"
             />
             <Box>Full Auto</Box>
           </HStack>
           <HStack>
-            {running && <Spinner size="sm" color="gray.500" mr={2} />}
+            {running && <Spinner size="sm" color="blue.200" mr={2} />}
             {!running && runHistory.length > 0 && (
               <Button
-                bg="transparent"
-                fontWeight="normal"
-                _hover={{
-                  bg: 'whiteAlpha.500',
-                  borderColor: 'blackAlpha.300',
-                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
-                }}
-                _focus={{
-                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
-                  outline: 'none',
-                }}
-                borderRadius="12px"
-                border="1px solid"
-                borderColor="blackAlpha.200"
+                variant="ghost"
+                color="gray.400"
+                _hover={{ color: "red.300", bg: "whiteAlpha.100" }}
                 onClick={() => dispatch('CLEAR_HISTORY')}
                 aria-label="Clear history"
               >
@@ -194,36 +189,30 @@ function Main() {
               </Button>
             )}
             <Button
-              bg="transparent"
-              fontWeight="normal"
+              bg={running ? "red.600" : "blue.600"}
+              color="white"
               _hover={{
-                bg: 'whiteAlpha.500',
-                borderColor: 'blackAlpha.300',
-                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+                bg: running ? "red.700" : "blue.700",
               }}
-              _focus={{
-                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
-                outline: 'none',
+              _active={{
+                bg: running ? "red.800" : "blue.800",
               }}
               borderRadius="12px"
-              border="1px solid"
-              borderColor="blackAlpha.200"
               onClick={running ? () => dispatch('STOP_RUN') : startRun}
               isDisabled={!running && localInstructions?.trim() === ''}
+              leftIcon={running ? <FaStop /> : undefined}
             >
-              {running ? <FaStop /> : "Let's Go"}
+              {running ? 'Stop' : "Let's Go"}
             </Button>
           </HStack>
         </HStack>
 
-        {/* Add error display */}
         {error && (
-          <Box w="100%" color="red.700">
+          <Box w="100%" color="red.300" bg="red.900" p={3} borderRadius="md">
             {error}
           </Box>
         )}
 
-        {/* RunHistory component */}
         <Box flex="1" w="100%" overflow="auto">
           <RunHistory />
         </Box>
@@ -236,7 +225,8 @@ const theme = extendTheme({
   styles: {
     global: {
       body: {
-        color: 'rgb(83, 81, 70)',
+        bg: 'gray.900',
+        color: 'gray.100',
       },
     },
   },
@@ -244,9 +234,9 @@ const theme = extendTheme({
     Switch: {
       baseStyle: {
         track: {
-          bg: 'blackAlpha.200',
+          bg: 'gray.700',
           _checked: {
-            bg: '#c79060',
+            bg: 'blue.600',
           },
         },
       },
@@ -257,7 +247,7 @@ const theme = extendTheme({
 export default function App() {
   return (
     <ChakraProvider theme={theme}>
-      <Box bg="rgb(240, 238, 229)" minHeight="100vh">
+      <Box bg="gray.900" minHeight="100vh">
         <Router>
           <Routes>
             <Route path="/" element={<Main />} />
